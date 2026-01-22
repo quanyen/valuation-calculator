@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Valuation Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --green: #22c55e;
+            --red: #ef4444;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            padding: 40px;
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+
+        /* Left Column: Inputs */
+        .input-panel {
+            flex: 1;
+            min-width: 300px;
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: var(--text-main);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        input[type="number"], select, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box; 
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* Disabled Input Style for Reverse DCF */
+        input:disabled {
+            background-color: #f3f4f6;
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .input-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        /* Right Column: Results */
+        .results-column {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .result-card {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+        }
+
+        .summary-text {
+            font-size: 15px;
+            line-height: 1.5;
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+
+        .summary-highlight {
+            font-weight: bold;
+        }
+
+        /* Market Insight Text Style */
+        .market-insight {
+            background-color: #f0f9ff;
+            border-left: 3px solid #0ea5e9;
+            padding: 10px;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #0c4a6e;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .metric-value-group {
+            text-align: right;
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .badge.green { background-color: var(--green); }
+        .badge.red { background-color: var(--red); }
+
+        /* Tooltip Styles */
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .tooltip-text {
+            visibility: hidden;
+            width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%; 
+            left: 50%;
+            margin-left: -125px; 
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            line-height: 1.4;
+            font-weight: normal;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+
+        .tooltip-container:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .help-icon {
+            color: #9ca3af;
+            font-size: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Chart Container Style */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        /* Sensitivity Table Styles */
+        .sensitivity-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .sensitivity-table th, .sensitivity-table td {
+            padding: 8px;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+        .sensitivity-table th {
+            background-color: #f9fafb;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .axis-label {
+            font-weight: bold;
+            color: var(--text-main);
+            background-color: #f3f4f6;
+        }
+        .cell-undervalued { background-color: #dcfce7; color: #14532d; font-weight: 600; }
+        .cell-overvalued { background-color: #fee2e2; color: #7f1d1d; }
+        .cell-selected { border: 2px solid var(--primary) !important; position: relative; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div class="input-panel">
+        <h2>Parameters</h2>
+
+        <div style="background: #f0f9ff; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #bae6fd;">
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label style="color: #0369a1;">Current Stock Price ($)</label>
+                <input type="number" id="currentPrice" value="83.37" step="0.01">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label style="color: #0369a1;">Current Metric Per Share (e.g. EBITDA/Share)</label>
+                <input type="number" id="currentMetric" value="7.25" step="0.01">
+                <div class="input-hint">Derived from Price / Current Ratio</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Metric to Use</label>
+            <select id="metricType">
+                <option value="EBITDA">EBITDA</option>
+                <option value="Earnings">Earnings (EPS)</option>
+                <option value="FCF">Free Cash Flow</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Number of Years To Project</label>
+            <input type="number" id="years" value="5">
+        </div>
+
+        <div class="form-group">
+            <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label style="margin-bottom:0;">How Fast Will Metric Grow? (%)</label>
+                <div style="font-size: 12px; color: var(--primary); display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                    <input type="checkbox" id="reverseToggle" style="cursor: pointer;"> 
+                    <label for="reverseToggle" style="margin:0; cursor:pointer; color: var(--primary);">Reverse DCF</label>
+                </div>
+            </div>
+            <input type="number" id="growthRate" value="13">
+            <div class="input-hint" id="growthHint">Annual growth rate</div>
+        </div>
+
+        <div class="form-group">
+            <label>Growth Decay Rate (%)</label>
+            <input type="number" id="decayRate" value="0">
+            <div class="input-hint">Reduces growth rate each year by this %</div>
+        </div>
+
+        <div class="form-group">
+            <label>Terminal Multiple (Price to Metric Ratio)</label>
+            <input type="number" id="terminalMultiple" value="11">
+            <div class="input-hint">The multiple you sell the stock for in the future</div>
+        </div>
+
+        <div class="form-group">
+            <label>What Rate of Return Do You Want? (%)</label>
+            <input type="number" id="discountRate" value="10">
+            <div class="input-hint">Discount Rate</div>
+        </div>
+
+    </div>
+
+    <div class="results-column">
+        
+        <div class="result-card">
+            <h2>DCF Analysis</h2>
+            
+            <div class="summary-text" id="summaryText">
+            </div>
+            
+            <div class="tooltip-container">
+                <a href="#" style="font-size: 12px; color: var(--text-muted); text-decoration: underline;">How is this calculated?</a>
+                <span class="tooltip-text" style="width: 300px; bottom: 110%;">
+                    <strong>Exit Multiple DCF Method:</strong><br><br>
+                    1. We project the company's financial metric (EBITDA/Earnings) into the future using your Growth Rate.<br>
+                    2. We multiply the final projected metric by your Terminal Multiple to get a <strong>Future Stock Price</strong>.<br>
+                    3. We discount that Future Price back to today's dollars using your Desired Return rate to find the <strong>Fair Value</strong>.
+                </span>
+            </div>
+        </div>
+
+        <div class="result-card">
+            
+            <div class="metric-row">
+                <div class="metric-label">Today's Stock Price 
+                    <div class="tooltip-container">
+                        <span class="help-icon">?</span>
+                        <span class="tooltip-text">The current market trading price of the stock.</span>
+                    </div>
+                </div>
+                <div class="metric-value" id="outCurrentPrice">$0.00</div>
+            </div>
+
+            <div class="metric-row">
+                <div class="metric-label">Future Stock Price 
+                    <div class="tooltip-container">
+                        <span class="help-icon">?</span>
+                        <span class="tooltip-text">
+                            <strong>Definition:</strong> The estimated price of the stock at the end of the projection period.<br><br>
+                            <strong>Formula:</strong><br>
+                            (Current Metric × (1 + Growth Rate)^Years) × Terminal Multiple
+                        </span>
+                    </div>
+                </div>
+                <div class="metric-value-group">
+                    <span class="badge" id="futureUpsideBadge">0%</span>
+                    <span class="metric-value" id="outFuturePrice">$0.00</span>
+                </div>
+            </div>
+
+            <div class="metric-row">
+                <div class="metric-label">Fair Value (Buy Price) 
+                    <div class="tooltip-container">
+                        <span class="help-icon">?</span>
+                        <span class="tooltip-text">
+                            <strong>Definition:</strong> The maximum price you should pay today to achieve your desired rate of return.<br><br>
+                            <strong>Formula:</strong><br>
+                            Future Price / (1 + Discount Rate)^Years
+                        </span>
+                    </div>
+                </div>
+                <div class="metric-value-group">
+                    <span class="badge" id="fairValueBadge">0%</span>
+                    <span class="metric-value" id="outFairValue">$0.00</span>
+                </div>
+            </div>
+
+            <div class="metric-row">
+                <div class="metric-label">CAGR (Expected Return) 
+                    <div class="tooltip-container">
+                        <span class="help-icon">?</span>
+                        <span class="tooltip-text">
+                            <strong>Definition:</strong> Compound Annual Growth Rate. This is the effective annual return if you bought at the Current Price and sold at the Future Price.<br><br>
+                            <strong>Formula:</strong><br>
+                            ((Future Price / Current Price)^(1/Years)) - 1
+                        </span>
+                    </div>
+                </div>
+                <div class="metric-value" id="outCAGR">0.00%</div>
+            </div>
+
+        </div>
+
+        <div class="result-card">
+            <h2 style="margin-bottom: 5px;">Sensitivity Analysis</h2>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px; margin-top:0;">Fair Value at different Growth Rates & Multiples</p>
+            <div style="overflow-x: auto;">
+                <table class="sensitivity-table" id="sensitivityTable">
+                    </table>
+            </div>
+        </div>
+
+        <div class="result-card">
+            <div class="chart-container">
+                <canvas id="valuationChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // Inputs
+    const inputs = document.querySelectorAll('input:not(#reverseToggle), select');
+    const toggle = document.getElementById('reverseToggle');
+    const growthInputEl = document.getElementById('growthRate');
+    let chartInstance = null; // Global var for chart
+
+    // Helpers for Chart
+    let historicalData = [35, 38, 42, 40, 55, 60, 58, 75, 70, 80, 83.37];
+    const historicalYears = Array.from({length: 11}, (_, i) => 2014 + i);
+
+    // HELPER: Binary Search Solver for Reverse DCF
+    // Finds the growth rate that makes Fair Value == Current Price
+    function solveImpliedGrowth(targetPrice, metric, years, decay, multiple, discRate) {
+        let low = -0.99; // -99%
+        let high = 5.00; // 500%
+        let mid = 0;
+        let epsilon = 0.01; // tolerance in dollars
+
+        // Max iterations to prevent infinite loop
+        for (let i = 0; i < 50; i++) {
+            mid = (low + high) / 2;
+            
+            // Calculate FV with this 'mid' growth
+            let proj = metric;
+            let currentG = mid;
+            for(let y=0; y<years; y++) {
+                proj = proj * (1 + currentG);
+                if(decay > 0) currentG = currentG * (1 - decay);
+            }
+            let fv = (proj * multiple) / Math.pow((1+discRate), years);
+
+            if (Math.abs(fv - targetPrice) < epsilon) {
+                return mid; // Found it
+            }
+
+            if (fv > targetPrice) {
+                high = mid; // Too high, lower the ceiling
+            } else {
+                low = mid; // Too low, raise the floor
+            }
+        }
+        return mid;
+    }
+
+    function calculate() {
+        // 1. Get Values
+        const currentPrice = parseFloat(document.getElementById('currentPrice').value);
+        const currentMetric = parseFloat(document.getElementById('currentMetric').value);
+        const years = parseFloat(document.getElementById('years').value);
+        const decayRate = parseFloat(document.getElementById('decayRate').value) / 100;
+        const terminalMultiple = parseFloat(document.getElementById('terminalMultiple').value);
+        const discountRate = parseFloat(document.getElementById('discountRate').value) / 100;
+        
+        let growthInputVal = parseFloat(growthInputEl.value);
+
+        // --- REVERSE DCF LOGIC ---
+        // Always calculate implied growth in background (for Insight Mode)
+        const impliedGrowthRaw = solveImpliedGrowth(currentPrice, currentMetric, years, decayRate, terminalMultiple, discountRate);
+        const impliedGrowthPct = (impliedGrowthRaw * 100);
+
+        // Check Toggle State
+        if (toggle.checked) {
+            // Active Mode: Overwrite input with Implied Rate
+            growthInputVal = impliedGrowthPct;
+            growthInputEl.value = impliedGrowthPct.toFixed(2);
+            growthInputEl.disabled = true;
+            document.getElementById('growthHint').innerText = "Auto-calculated based on Current Price";
+        } else {
+            // Manual Mode: Use user input
+            growthInputEl.disabled = false;
+            document.getElementById('growthHint').innerText = "Annual growth rate";
+        }
+
+        const initialGrowthRate = growthInputVal / 100;
+
+        // 2. Project Metric Logic (Handle Decay)
+        let projectedMetric = currentMetric;
+        let currentGrowth = initialGrowthRate;
+
+        for (let i = 0; i < years; i++) {
+            projectedMetric = projectedMetric * (1 + currentGrowth);
+            if (decayRate > 0) {
+                currentGrowth = currentGrowth * (1 - decayRate);
+            }
+        }
+
+        // 3. Calculate Future Price
+        const futurePrice = projectedMetric * terminalMultiple;
+
+        // 4. Calculate Fair Value (Discounting Future Price back to today)
+        const fairValue = futurePrice / Math.pow((1 + discountRate), years);
+
+        // 5. Calculate Upside/Downside stats
+        const priceDiffPercent = ((fairValue - currentPrice) / currentPrice) * 100;
+        const futureUpsidePercent = ((futurePrice - currentPrice) / currentPrice) * 100;
+
+        // 6. Calculate CAGR 
+        const cagr = (Math.pow((futurePrice / currentPrice), (1 / years)) - 1) * 100;
+
+        // 7. Render Outputs
+        document.getElementById('outCurrentPrice').innerText = `$${currentPrice.toFixed(2)}`;
+        document.getElementById('outFuturePrice').innerText = `$${futurePrice.toFixed(2)}`;
+        const fBadge = document.getElementById('futureUpsideBadge');
+        fBadge.innerText = `${futureUpsidePercent > 0 ? '↑' : '↓'} ${Math.abs(futureUpsidePercent).toFixed(2)}%`;
+        fBadge.className = futureUpsidePercent >= 0 ? 'badge green' : 'badge red';
+
+        document.getElementById('outFairValue').innerText = `$${fairValue.toFixed(2)}`;
+        const vBadge = document.getElementById('fairValueBadge');
+        vBadge.innerText = `${priceDiffPercent > 0 ? '↑' : '↓'} ${Math.abs(priceDiffPercent).toFixed(2)}%`;
+        vBadge.className = priceDiffPercent >= 0 ? 'badge green' : 'badge red';
+
+        document.getElementById('outCAGR').innerText = `${cagr.toFixed(2)}%`;
+
+        const ticker = "the stock";
+        const valuationStatus = priceDiffPercent > 0 ? "undervalued" : "overvalued";
+        
+        // --- INSIGHT TEXT LOGIC ---
+        let insightHTML = "";
+        
+        if (!toggle.checked) {
+            // Insight Mode: Compare User vs Market
+            const diff = growthInputVal - impliedGrowthPct;
+            const sentiment = diff > 0 ? "optimistic" : "conservative";
+            const comparison = diff > 0 ? "higher" : "lower";
+            
+            insightHTML = `
+                <div class="market-insight">
+                    <strong>Market Reality Check:</strong><br>
+                    To justify the current price of <b>$${currentPrice.toFixed(2)}</b>, the market expects a growth rate of <b>${impliedGrowthPct.toFixed(2)}%</b>.
+                    <br><br>
+                    Your assumption (${growthInputVal}%) is <b>${comparison}</b> than the market, suggesting you are being more ${sentiment}.
+                </div>
+            `;
+        } else {
+            // Toggle Mode: Just state facts
+            insightHTML = `
+                <div class="market-insight" style="border-left-color: var(--primary);">
+                    <strong>Reverse DCF Active:</strong><br>
+                    The calculator is locked to show the growth rate required (<b>${impliedGrowthPct.toFixed(2)}%</b>) to justify the current stock price.
+                </div>
+            `;
+        }
+
+        const summaryHTML = `
+            Based on your inputs, ${ticker} is <span class="summary-highlight" style="color:${priceDiffPercent > 0 ? 'var(--green)' : 'var(--red)'}">${Math.abs(priceDiffPercent).toFixed(2)}% ${valuationStatus}</span> 
+            and would produce a CAGR of <span class="summary-highlight">${cagr.toFixed(2)}%</span> from today's share price.
+            <br><br>
+            You would need to buy at <span class="summary-highlight">$${fairValue.toFixed(2)}</span> to achieve your desired return of ${(discountRate * 100).toFixed(0)}%.
+            ${insightHTML}
+        `;
+        document.getElementById('summaryText').innerHTML = summaryHTML;
+
+        // Chart Data Points
+        let projectedPrices = [currentPrice];
+        const impliedCAGR = (Math.pow((futurePrice / currentPrice), (1/years)) - 1);
+        for(let i=1; i<=years; i++) {
+            let p = currentPrice * Math.pow((1 + impliedCAGR), i);
+            projectedPrices.push(p);
+        }
+
+        updateChart(historicalYears, historicalData, years, projectedPrices, currentPrice);
+        
+        // Run Sensitivity Analysis
+        generateSensitivityTable(currentPrice, currentMetric, years, growthInputVal, decayRate, terminalMultiple, discountRate);
+    }
+
+    // Chart Logic
+    function updateChart(pastYears, pastData, projectionYears, futureData, currentPrice) {
+        const ctx = document.getElementById('valuationChart').getContext('2d');
+        const lastYear = pastYears[pastYears.length - 1];
+        
+        let futureLabels = [];
+        for(let i=0; i<=projectionYears; i++) futureLabels.push(lastYear + i);
+        const allLabels = [...pastYears, ...futureLabels.slice(1)];
+
+        const chartPastData = [...pastData];
+        for(let i=1; i<futureLabels.length; i++) chartPastData.push(null);
+
+        let chartFutureData = Array(pastYears.length - 1).fill(null); 
+        chartFutureData = chartFutureData.concat(futureData);
+
+        if (chartInstance) chartInstance.destroy();
+
+        let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(34, 197, 94, 0.4)');
+        gradient.addColorStop(1, 'rgba(34, 197, 94, 0.0)');
+
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: allLabels,
+                datasets: [
+                    {
+                        label: 'Historical',
+                        data: chartPastData,
+                        borderColor: '#1f2937',
+                        backgroundColor: gradient,
+                        fill: true,
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Projected',
+                        data: chartFutureData,
+                        borderColor: '#3b82f6',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        tension: 0.1,
+                        pointRadius: 3,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { grid: { color: '#f3f4f6' } }
+                }
+            }
+        });
+    }
+
+    // Sensitivity Analysis Function
+    function generateSensitivityTable(currPrice, metric, years, baseGrowth, decay, baseMult, discRate) {
+        const table = document.getElementById('sensitivityTable');
+        table.innerHTML = ''; // Clear previous
+
+        const growthSteps = [-2, -1, 0, 1, 2];
+        const multSteps = [-2, -1, 0, 1, 2];
+
+        // Header Row
+        let thead = table.insertRow();
+        let emptyCorner = thead.insertCell();
+        emptyCorner.innerHTML = "<b>Growth \\ Multiple</b>";
+        emptyCorner.style.backgroundColor = "#f3f4f6";
+        
+        multSteps.forEach(step => {
+            let th = thead.insertCell();
+            let val = baseMult + step;
+            th.innerText = val.toFixed(1) + "x";
+            th.className = "axis-label";
+            if(step === 0) th.style.borderBottom = "2px solid var(--primary)";
+        });
+
+        // Data Rows
+        growthSteps.forEach(gStep => {
+            let row = table.insertRow();
+            
+            let cellLabel = row.insertCell();
+            let gVal = baseGrowth + gStep;
+            cellLabel.innerText = gVal.toFixed(1) + "%";
+            cellLabel.className = "axis-label";
+            if(gStep === 0) cellLabel.style.borderRight = "2px solid var(--primary)";
+
+            multSteps.forEach(mStep => {
+                let cell = row.insertCell();
+                
+                let gDecimal = (baseGrowth + gStep) / 100;
+                let mVal = baseMult + mStep;
+                
+                let proj = metric;
+                let curG = gDecimal;
+                for(let i=0; i<years; i++){
+                    proj = proj * (1 + curG);
+                    if(decay > 0) curG = curG * (1 - decay);
+                }
+                
+                let futP = proj * mVal;
+                let fairV = futP / Math.pow((1 + discRate), years);
+                
+                cell.innerText = "$" + fairV.toFixed(2);
+
+                if (fairV >= currPrice) {
+                    cell.className = "cell-undervalued";
+                } else {
+                    cell.className = "cell-overvalued";
+                }
+
+                if (gStep === 0 && mStep === 0) {
+                    cell.classList.add("cell-selected");
+                }
+            });
+        });
+    }
+
+    // Listeners
+    inputs.forEach(input => {
+        input.addEventListener('input', calculate);
+    });
+
+    toggle.addEventListener('change', calculate);
+
+    // Update fake history if user changes current price
+    document.getElementById('currentPrice').addEventListener('change', (e) => {
+        let newPrice = parseFloat(e.target.value);
+        let ratio = newPrice / historicalData[historicalData.length-1];
+        historicalData = historicalData.map(v => v * ratio);
+        calculate();
+    });
+
+    // Initial Run
+    calculate();
+
+</script>
+
+</body>
+</html>
